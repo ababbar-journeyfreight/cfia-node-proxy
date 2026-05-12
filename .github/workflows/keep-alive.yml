@@ -1,0 +1,16 @@
+name: Keep Render Server Alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+
+  workflow_dispatch:
+
+jobs:
+  ping-server:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Render Server
+        run: |
+          curl -fsS --max-time 15 https://cfia-node-proxy.onrender.com/ping
