@@ -5,6 +5,11 @@ const cheerio = require('cheerio');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.get('/ping', (req, res) => {
+  res.status(200).send('OK');
+});
+
+
 app.get('/cfia', async (req, res) => {
   const omic = req.query.omic;
 
