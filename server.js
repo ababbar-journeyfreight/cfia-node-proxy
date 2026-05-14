@@ -1,105 +1,104 @@
-const express = require('express');
-const axios = require('axios');
-const cheerio = require('cheerio');
+import express from "express";
+import puppeteer from "puppeteer";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(express.json());
 
-app.get('/ping', (req, res) => {
-  res.status(200).send('OK');
-});
+// Random human-like delay
+const waitRandom = async () => {
+  const delay = 500 + Math.random() * 1200; // 0.5s–1.7s
+  return new Promise(resolve => setTimeout(resolve, delay));
+};
 
+app.get("/omic/:number", async (req, res) => {
+  const omic = req.params.number;
 
-app.get('/cfia', async (req, res) => {
-  const omic = req.query.omic;
-
-  if (!omic) {
-    return res.status(400).json({ error: 'Missing omic parameter' });
-  }
-
+  let browser;
   try {
-    const url = 'https://shipmenttracker-suividesenvois.inspection.canada.ca/service/english/common/shipmenttracker.aspx';
-
-    // STEP 1: First GET to get VIEWSTATE etc. (with browser-like headers)
-    const initialResponse = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Connection': 'keep-alive'
-      },
-      withCredentials: true
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--window-size=1920,1080"
+      ]
     });
 
-    const cookies = initialResponse.headers['set-cookie'];
-    const html = initialResponse.data;
-    const $ = cheerio.load(html);
+    const page = await browser.newPage();
 
-    const viewState = $('#__VIEWSTATE').val();
-    const eventValidation = $('#__EVENTVALIDATION').val();
-    const viewStateGen = $('#__VIEWSTATEGENERATOR').val();
+    // Rotate Chrome user-agents
+    const userAgents = [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    ];
+    await page.setUserAgent(userAgents[Math.floor(Math.random() * userAgents.length)]);
 
-    if (!viewState || !eventValidation || !viewStateGen) {
-      return res.status(500).json({
-        error: 'Failed to extract VIEWSTATE fields',
-        debug: { viewState: !!viewState, eventValidation: !!eventValidation, viewStateGen: !!viewStateGen }
-      });
-    }
+    await page.setExtraHTTPHeaders({
+      "Accept-Language": "en-US,en;q=0.9"
+    });
 
-    // STEP 2: POST with form data
-    const formData = new URLSearchParams();
-    formData.append('__VIEWSTATE', viewState);
-    formData.append('__EVENTVALIDATION', eventValidation);
-    formData.append('__VIEWSTATEGENERATOR', viewStateGen);
-    formData.append('ctl00$MainBody$uxOMIC', omic);
-    formData.append('ctl00$MainBody$uxSearch', 'Search');
-
-    const postResponse = await axios.post(url, formData.toString(), {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': cookies ? cookies.join('; ') : ''
+    // Load CFIA OMIC page
+    await page.goto(
+      "https://shipmenttracker-suividesenvois.inspection.canada.ca/service/english/common/shipmenttracker.aspx",
+      {
+        waitUntil: "networkidle2",
+        timeout: 60000
       }
+    );
+
+    await waitRandom();
+
+    // Type OMIC number
+    await page.type("#ctl00_MainBody_uxOMIC", omic, {
+      delay: 120 + Math.random() * 80
     });
 
-    const resultHtml = postResponse.data;
-    const $$ = cheerio.load(resultHtml);
+    await waitRandom();
 
-    const tds = [];
-    $$('td').each((i, el) => {
-      tds.push($$(el).text().trim());
+    // Click Search button
+    await page.click("#ctl00_MainBody_uxSearch");
+
+    // Wait for results table
+    await page.waitForSelector("table", { timeout: 30000 });
+
+    // Extract data from table
+    const result = await page.evaluate(() => {
+      const getCell = (headerId) =>
+        document.querySelector(`td[headers="${headerId}"]`)?.innerText?.trim() || null;
+
+      return {
+        omic: getCell("ctl00_MainBody_uxTableHeaderCell1"),
+        controlNumber: getCell("ctl00_MainBody_uxTableHeaderCell2"),
+        inspectionRequired: getCell("ctl00_MainBody_uxTableHeaderCell3"),
+        establishmentNumber: getCell("ctl00_MainBody_uxTableHeaderCell4")
+      };
     });
 
-    if (tds.length < 4) {
-      return res.status(500).json({
-        error: 'Could not parse CFIA response',
-        debugSample: tds.slice(0, 10)
-      });
-    }
-
-    const output = {
-      omic: tds[0],
-      controlNumber: tds[1],
-      inspectionRequired: tds[2],
-      establishmentNumber: tds[3]
-    };
-
-    return res.json(output);
-
-  } catch (err) {
-    return res.status(500).json({
-      error: 'Server error',
-      message: err.message
+    res.json({
+      success: true,
+      omic,
+      ...result
     });
+
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch OMIC data",
+      message: error.message
+    });
+  } finally {
+    if (browser) await browser.close();
   }
 });
 
-app.get('/', (req, res) => {
-  res.send('CFIA Node proxy is running');
+// Health check
+app.get("/ping", (req, res) => {
+  res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(3000, () => console.log("Server running on port 3000"));
