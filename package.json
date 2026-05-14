@@ -4,7 +4,7 @@
   "description": "CFIA OMIC tracking API",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js"
   },
   "engines": {
     "node": "18.x"
