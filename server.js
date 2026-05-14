@@ -15,17 +15,18 @@ app.get("/omic/:number", async (req, res) => {
 
   let browser;
   try {
-    browser = await puppeteer.launch({
-      headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-blink-features=AutomationControlled",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--window-size=1920,1080"
-      ]
-    });
+ browser = await puppeteer.launch({
+  headless: "new",
+  executablePath: "/usr/bin/google-chrome-stable",
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-blink-features=AutomationControlled",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--window-size=1920,1080"
+  ]
+});
 
     const page = await browser.newPage();
 
