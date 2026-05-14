@@ -1,14 +1,14 @@
 {
   "name": "cfia-node-proxy",
   "version": "1.0.0",
-  "type": "module",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node server.js",
-    "postinstall": "PUPPETEER_CACHE_DIR=./.cache PUPPETEER_DOWNLOAD_PATH=./.cache npm rebuild puppeteer"
+    "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "puppeteer": "21.3.8"
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "express": "^4.18.2"
   }
 }
