@@ -1,14 +1,21 @@
 {
-  "name": "cfia-node-proxy",
+  "name": "cfia-proxy",
   "version": "1.0.0",
-  "main": "server.js",
-  "type": "commonjs",
+  "description": "CFIA OMIC tracking API",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": "18.x"
   },
   "dependencies": {
+    "express": "^4.18.2",
     "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12",
-    "express": "^4.18.2"
+    "cheerio": "^1.0.0",
+    "node-cache": "^5.1.2",
+    "axios-retry": "^3.9.0",
+    "http": "0.0.1-security",
+    "https": "1.0.0"
   }
 }
