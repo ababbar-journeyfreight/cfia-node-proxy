@@ -1,16 +1,12 @@
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
-//const NodeCache = require('node-cache');
 const http = require('http');
 const https = require('https');
 const axiosRetry = require('axios-retry').default;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-
-//const cache = new NodeCache({ stdTTL: 900 });
 
 // AXIOS INSTANCE (stable) 
 
@@ -48,7 +44,7 @@ function extractFields($) {
   };
 }
 
-/* ROOT */
+// ROOT 
 app.get('/', (req, res) => {
   res.send('CFIA API running');
 });
