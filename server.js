@@ -1,7 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const NodeCache = require('node-cache');
+//const NodeCache = require('node-cache');
 const http = require('http');
 const https = require('https');
 const axiosRetry = require('axios-retry').default;
@@ -9,29 +9,18 @@ const axiosRetry = require('axios-retry').default;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/*
-========================
-CACHE (15 min)
-========================
-*/
-const cache = new NodeCache({ stdTTL: 900 });
 
-/*
-========================
-AXIOS INSTANCE (stable)
-========================
-*/
+//const cache = new NodeCache({ stdTTL: 900 });
+
+// AXIOS INSTANCE (stable) 
+
 const axiosInstance = axios.create({
   timeout: 20000,
   httpAgent: new http.Agent({ keepAlive: true }),
   httpsAgent: new https.Agent({ keepAlive: true })
 });
 
-/*
-========================
-RETRY LOGIC
-========================
-*/
+// RETRY LOGIC 
 axiosRetry(axiosInstance, {
   retries: 3,
   retryDelay: (count) => count * 2000,
@@ -40,11 +29,7 @@ axiosRetry(axiosInstance, {
     axiosRetry.isRetryableError(err)
 });
 
-/*
-========================
-HEADERS (browser-like)
-========================
-*/
+// HEADERS (browser-like) 
 const headers = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -54,11 +39,7 @@ const headers = {
   'Connection': 'keep-alive'
 };
 
-/*
-========================
-UTIL: extract ASP.NET fields
-========================
-*/
+// UTIL: extract ASP.NET fields 
 function extractFields($) {
   return {
     viewState: $('#__VIEWSTATE').val(),
@@ -67,31 +48,20 @@ function extractFields($) {
   };
 }
 
-/*
-========================
-ROOT
-========================
-*/
+/* ROOT */
 app.get('/', (req, res) => {
   res.send('CFIA API running');
 });
 
-/*
-========================
-PING
-========================
-*/
+// PING
+
 app.get('/ping', (req, res) => {
   res.send('OK');
 });
 
-/*
-========================
-MAIN API
-TEST:
-http://localhost:3000/cfia?omic=US1420117
-========================
-*/
+// MAIN API TEST: http://localhost:3000/cfia?omic=US1420117
+
+
 app.get('/cfia', async (req, res) => {
   const omic = req.query.omic;
 
@@ -99,14 +69,6 @@ app.get('/cfia', async (req, res) => {
     return res.status(400).json({ error: 'Missing omic parameter' });
   }
 
-  // CHECK CACHE
-  const cached = cache.get(omic);
-  if (cached) {
-    return res.json({
-      source: 'cache',
-      ...cached
-    });
-  }
 
   try {
     const url =
@@ -172,11 +134,18 @@ app.get('/cfia', async (req, res) => {
       controlNumber: row[1] || null,
       inspectionRequired: row[2] || null,
       establishmentNumber: row[3] || null,
-      fetchedAt: new Date().toISOString()
+      fetchedAt: new Date().toLocaleString('en-CA', {
+    timeZone: 'America/Toronto',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }) + 'ET'
     };
 
-    // SAVE CACHE
-    cache.set(omic, result);
 
     return res.json({
       source: 'cfia',
@@ -191,11 +160,7 @@ app.get('/cfia', async (req, res) => {
   }
 });
 
-/*
-========================
-START SERVER
-========================
-*/
+// START SERVER
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
